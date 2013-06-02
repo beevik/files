@@ -3,6 +3,7 @@ package files
 import (
     "errors"
     "os"
+    "path"
     "regexp"
 )
 
@@ -10,7 +11,7 @@ import (
 type DirMode uint32
 
 const (
-    D_RECURSE DirMode = 1 << iota   // Recurse all directories
+    D_RECURSE DirMode = 1 << iota // Recurse all directories
 )
 
 // A DirReader iterates through the files contained within a directory.
@@ -155,7 +156,7 @@ func (r *DirReader) getMoreFiles() error {
         return err
     }
     for _, i := range files {
-        r.files = append(r.files, FileInfo{info.Path + "/" + i.Name(), i})
+        r.files = append(r.files, FileInfo{path.Join(info.Path, i.Name()), i})
     }
     return nil
 }

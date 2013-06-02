@@ -26,8 +26,8 @@ func TestNewDirReader(t *testing.T) {
 }
 
 func typechar(i *FileInfo) byte {
-	if i.IsDir() {
-		return 'D'
-	}
-	return 'F'
+    if i.IsDir() {
+        return 'D'
+    }
+    return 'F'
 }
