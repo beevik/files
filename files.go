@@ -24,10 +24,10 @@ var (
 // A DirReader iterates through the files and subdirectories contained
 // within a directory.
 type DirReader struct {
-    Filter Filter
-    mode   DirMode
-    dirs   []FileInfo
-    files  []FileInfo
+    Filter        Filter
+    mode          DirMode
+    dirs          []FileInfo
+    files         []FileInfo
     dirsTraversed int
 }
 
@@ -159,7 +159,7 @@ func (r *DirReader) Next() (*FileInfo, error) {
 func (r *DirReader) getMoreFiles() error {
     var info *FileInfo
     info, r.dirs = &r.dirs[0], r.dirs[1:]
-    if r.dirsTraversed++; r.dirsTraversed % 64 == 0 {
+    if r.dirsTraversed++; r.dirsTraversed%64 == 0 {
         newdirs := make([]FileInfo, len(r.dirs))
         copy(newdirs, r.dirs)
         r.dirs = newdirs
