@@ -1,3 +1,5 @@
+// Package files contains functions and types that help with file and
+// directory processing.
 package files
 
 import (
@@ -14,6 +16,11 @@ const (
     D_RECURSE DirMode = 1 << iota // Recurse all directories
 )
 
+// Errors returned by the files packages
+var (
+    ErrNotDirectory error
+)
+
 // A DirReader iterates through the files contained within a directory.
 type DirReader struct {
     Filter Filter
@@ -22,14 +29,18 @@ type DirReader struct {
     files  []FileInfo
 }
 
-// A FileInfo contains a file's full path.  It also embeds a os.FileInfo struct.
+// A FileInfo contains a file's full path.  It also embeds an os.FileInfo struct.
 type FileInfo struct {
     Path string
     os.FileInfo
 }
 
-// A Filter defines rules that allow inclusion or exclusion of a file
-// in the results of a DirReader iteration.
+func init() {
+    ErrNotDirectory = errors.New("files: file is not a directory")
+}
+
+// A Filter interface is used to define rules that allow inclusion or exclusion
+// of a file in the results of a DirReader Next() iteration.
 type Filter interface {
     Test(f *FileInfo) bool
 }
@@ -40,7 +51,7 @@ func (ff fileFilter) Test(f *FileInfo) bool {
     return !f.IsDir()
 }
 
-// Create a filter that returns true when passed a file (not a directory).
+// FileFilter creates a filter that accepts only files (not directories).
 func FileFilter() Filter {
     return fileFilter{}
 }
@@ -51,7 +62,7 @@ func (df dirFilter) Test(f *FileInfo) bool {
     return f.IsDir()
 }
 
-// Createa a filter that returns true when passed a directory.
+// DirFilter creates a filter that accepts only directories (not files).
 func DirFilter() Filter {
     return dirFilter{}
 }
@@ -64,8 +75,8 @@ func (rf regexpFilter) Test(f *FileInfo) bool {
     return rf.pattern.MatchString(f.Path)
 }
 
-// Create a filter that returns true when the regular expression matches
-// the file's full path.
+// RegexpFilter creates a filter that returns true when the regular
+// expression matches the file's full path.
 func RegexpFilter(pattern string) Filter {
     p := regexp.MustCompile(pattern)
     return regexpFilter{p}
@@ -84,7 +95,7 @@ func (mf multiFilter) Test(f *FileInfo) bool {
     return true
 }
 
-// Create a filter composed of several other filters.
+// MultiFilter creates a filter composed of several other filters.
 func MultiFilter(filters ...Filter) Filter {
     return &multiFilter{filters}
 }
@@ -103,17 +114,19 @@ func NewDirReader(dir string, mode DirMode) (*DirReader, error) {
         return nil, err
     }
     if !info.IsDir() {
-        return nil, errors.New("file is not a directory")
+        return nil, ErrNotDirectory
     }
 
-    r := new(DirReader)
-    r.dirs = make([]FileInfo, 1, 8)
+    r := &DirReader{
+        dirs: make([]FileInfo, 1, 8),
+        mode: mode,
+    }
     r.dirs[0] = FileInfo{dir, info}
-    r.mode = mode
     return r, nil
 }
 
-// Next returns the next file in the iteration of the directory
+// Next iterates to the next available file in the directory and
+// returns its file info.
 func (r *DirReader) Next() (*FileInfo, error) {
     for {
         // Retrieve more files if available
@@ -139,8 +152,8 @@ func (r *DirReader) Next() (*FileInfo, error) {
     return nil, nil
 }
 
-// getMoreFiles is a hlper function that retrieves more files
-// from a directory
+// getMoreFiles is a helper function that retrieves more files
+// from a directory.
 func (r *DirReader) getMoreFiles() error {
     var info FileInfo
     info, r.dirs = r.dirs[0], r.dirs[1:]
