@@ -13,7 +13,7 @@ import (
 type DirMode uint32
 
 const (
-    D_RECURSE DirMode = 1 << iota // Recurse all directories
+    D_RECURSE DirMode = 1 << iota // Recurse all subdirectories
 )
 
 // Errors returned by the files packages
@@ -21,15 +21,17 @@ var (
     ErrNotDirectory error
 )
 
-// A DirReader iterates through the files contained within a directory.
+// A DirReader iterates through the files and subdirectories contained
+// within a directory.
 type DirReader struct {
     Filter Filter
     mode   DirMode
     dirs   []FileInfo
     files  []FileInfo
+    dirsTraversed int
 }
 
-// A FileInfo contains a file's full path.  It also embeds an os.FileInfo struct.
+// A FileInfo contains a file's full path.  It also embeds an os.FileInfo.
 type FileInfo struct {
     Path string
     os.FileInfo
@@ -39,15 +41,15 @@ func init() {
     ErrNotDirectory = errors.New("files: file is not a directory")
 }
 
-// A Filter interface is used to define rules that allow inclusion or exclusion
-// of a file in the results of a DirReader Next() iteration.
+// A Filter interface is used to define rules to include or exclude
+// a file in the results of a Next() iteration.
 type Filter interface {
-    Test(f *FileInfo) bool
+    Eval(f *FileInfo) bool
 }
 
 type fileFilter struct{}
 
-func (ff fileFilter) Test(f *FileInfo) bool {
+func (ff fileFilter) Eval(f *FileInfo) bool {
     return !f.IsDir()
 }
 
@@ -58,7 +60,7 @@ func FileFilter() Filter {
 
 type dirFilter struct{}
 
-func (df dirFilter) Test(f *FileInfo) bool {
+func (df dirFilter) Eval(f *FileInfo) bool {
     return f.IsDir()
 }
 
@@ -71,7 +73,7 @@ type regexpFilter struct {
     pattern *regexp.Regexp
 }
 
-func (rf regexpFilter) Test(f *FileInfo) bool {
+func (rf regexpFilter) Eval(f *FileInfo) bool {
     return rf.pattern.MatchString(f.Path)
 }
 
@@ -86,9 +88,9 @@ type multiFilter struct {
     filters []Filter
 }
 
-func (mf multiFilter) Test(f *FileInfo) bool {
+func (mf multiFilter) Eval(f *FileInfo) bool {
     for _, fx := range mf.filters {
-        if !fx.Test(f) {
+        if !fx.Eval(f) {
             return false
         }
     }
@@ -100,7 +102,7 @@ func MultiFilter(filters ...Filter) Filter {
     return &multiFilter{filters}
 }
 
-// NewDirReader creates a new directory reader rooted at the specified
+// NewDirReader creates a DirReader rooted at the specified
 // directory.
 func NewDirReader(dir string, mode DirMode) (*DirReader, error) {
     f, err := os.OpenFile(dir, os.O_RDONLY, os.ModePerm)
@@ -126,7 +128,7 @@ func NewDirReader(dir string, mode DirMode) (*DirReader, error) {
 }
 
 // Next iterates to the next available file in the directory and
-// returns its file info.
+// returns its FileInfo.  Returns a nil FileInfo when complete.
 func (r *DirReader) Next() (*FileInfo, error) {
     for {
         // Retrieve more files if available
@@ -139,14 +141,14 @@ func (r *DirReader) Next() (*FileInfo, error) {
             }
         }
 
-        // Test the next file
-        var info FileInfo
-        info, r.files = r.files[0], r.files[1:]
+        // Examine the next file
+        var info *FileInfo
+        info, r.files = &r.files[0], r.files[1:]
         if (r.mode&D_RECURSE) == D_RECURSE && info.IsDir() {
-            r.dirs = append(r.dirs, info)
+            r.dirs = append(r.dirs, *info)
         }
-        if r.Filter == nil || r.Filter.Test(&info) {
-            return &info, nil
+        if r.Filter == nil || r.Filter.Eval(info) {
+            return info, nil
         }
     }
     return nil, nil
@@ -155,8 +157,13 @@ func (r *DirReader) Next() (*FileInfo, error) {
 // getMoreFiles is a helper function that retrieves more files
 // from a directory.
 func (r *DirReader) getMoreFiles() error {
-    var info FileInfo
-    info, r.dirs = r.dirs[0], r.dirs[1:]
+    var info *FileInfo
+    info, r.dirs = &r.dirs[0], r.dirs[1:]
+    if r.dirsTraversed++; r.dirsTraversed % 64 == 0 {
+        newdirs := make([]FileInfo, len(r.dirs))
+        copy(newdirs, r.dirs)
+        r.dirs = newdirs
+    }
 
     f, err := os.OpenFile(info.Path, os.O_RDONLY, os.ModePerm)
     if err != nil {
