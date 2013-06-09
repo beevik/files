@@ -2,26 +2,24 @@ package files
 
 import (
     "testing"
+    "fmt"
 )
 
 func TestNewDirReader(t *testing.T) {
     r, err := NewDirReader("C:/Temp", D_RECURSE)
-    //r.Filter = MultiFilter(DirFilter(), RegexpFilter(`_`))
-    r.Filter = DirFilter()
-
     if err != nil {
-        t.Error(err)
-        return
+        panic(err)
     }
+    r.Filter = MultiFilter(FileFilter(), RegexpFilter(`\.xml$`))
     for {
-        i, err := r.Next()
+        info, err := r.Next()
         if err != nil {
-            t.Error(err)
+            panic(err)
         }
-        if i == nil {
+        if info == nil {
             break
         }
-        t.Logf("%v %v", string(typechar(i)), i.Path)
+        t.Log(fmt.Sprintf("%v\n", info))
     }
 }
 
