@@ -1,7 +1,7 @@
 package files_test
 
 import (
-    "files"
+    "github.com/beevik/files"
     "fmt"
 )
 

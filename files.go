@@ -154,6 +154,18 @@ func (r *DirReader) Next() (*FileInfo, error) {
     return nil, nil
 }
 
+// Returns a list of all file paths we have in our desired directory
+func (r *DirReader) GetAllFilePaths() []string {
+    r.getMoreFiles()
+    allFiles := make([]string, 0)
+    for _, file := range r.files {
+        if !file.Mode().IsDir() {
+            allFiles = append(allFiles, file.Path)
+        }
+    }
+    return allFiles
+}
+
 // getMoreFiles is a helper function that retrieves more files
 // from a directory.
 func (r *DirReader) getMoreFiles() error {
