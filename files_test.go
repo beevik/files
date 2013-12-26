@@ -1,22 +1,27 @@
 package files
 
 import (
-    "testing"
+	"os"
+	"testing"
 )
 
 func TestNewDirReader(t *testing.T) {
-    r, err := NewDirReader("C:/Temp", D_RECURSE)
-    if err != nil {
-        panic(err)
-    }
-    r.Filter = MultiFilter(FileFilter(), RegexpFilter(`\.xml$`))
-    for {
-        info, err := r.Next()
-        if err != nil {
-            panic(err)
-        }
-        if info == nil {
-            break
-        }
-    }
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Error(err)
+	}
+	r, err := NewDirReader(wd, D_RECURSE)
+	if err != nil {
+		t.Error(err)
+	}
+	r.Filter = MultiFilter(FileFilter(), RegexpFilter(`\.go$`))
+	for {
+		info, err := r.Next()
+		if err != nil {
+			t.Error(err)
+		}
+		if info == nil {
+			break
+		}
+	}
 }
