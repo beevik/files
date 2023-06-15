@@ -10,7 +10,7 @@ func TestNewDirReader(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	r, err := NewDirReader(wd, D_RECURSE)
+	r, err := NewDirReader(wd, Recurse)
 	if err != nil {
 		t.Error(err)
 	}
